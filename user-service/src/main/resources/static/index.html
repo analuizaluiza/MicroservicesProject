@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Sistema de Gerenciamento Escolar</title>
+    <link rel="stylesheet" href="https://cdn.simplecss.org/simple.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/vue@3.4.27/dist/vue.global.prod.js"></script>
+    <style>
+        button + button {
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <header>
+            <h1>Sistema de Gerenciamento Escolar</h1>
+        </header>
+        <main>
+            <button @click="showSchoolModal(null)">Adicionar Escola</button>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Nome da Escola</th>
+                        <th>Localização</th>
+                        <th>Nome do Diretor</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="school in schools" :key="school.id">
+                        <td>{{ school.schoolName }}</td>
+                        <td>{{ school.location }}</td>
+                        <td>{{ school.principalName }}</td>
+                        <td>
+                            <button @click="showSchoolModal(school)">Editar</button>
+                            <button @click="deleteSchool(school.id)">Deletar</button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </main>
+        <footer>
+            <p>&copy; 2024 Sistema de Gerenciamento Escolar. Todos os direitos reservados.</p>
+        </footer>
+
+        <!-- Modal -->
+        <dialog id="school-dialog">
+            <h2>{{ editMode ? 'Editar Escola' : 'Adicionar Escola' }}</h2>
+            <form @submit.prevent="saveSchool">
+                <fieldset>
+                    <label for="schoolName">Nome da Escola</label>
+                    <input type="text" id="schoolName" v-model="formData.schoolName" placeholder="Nome da Escola" required>
+                    <label for="location">Localização</label>
+                    <input type="text" id="location" v-model="formData.location" placeholder="Localização" required>
+                    <label for="principalName">Nome do Diretor</label>
+                    <input type="text" id="principalName" v-model="formData.principalName" placeholder="Nome do Diretor" required>
+                </fieldset>
+                <menu>
+                    <button type="submit">{{ editMode ? 'Atualizar' : 'Salvar' }}</button>
+                    <button type="button" @click="closeModal">Cancelar</button>
+                </menu>
+            </form>
+        </dialog>
+    </div>
+
+    <script>
+        const { createApp, ref } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    schools: [],
+                    modalVisible: false,
+                    editMode: false,
+                    formData: {
+                        schoolName: '',
+                        location: '',
+                        principalName: ''
+                    },
+                    editedSchoolId: null
+                };
+            },
+            methods: {
+                fetchSchools() {
+                    fetch('http://localhost:8080/school')
+                        .then(response => response.json())
+                        .then(data => {
+                            this.schools = data;
+                        })
+                        .catch(error => {
+                            console.error('Error fetching schools:', error);
+                        });
+                },
+                showSchoolModal(school) {
+                    this.editMode = !!school;
+                    this.modalVisible = true;
+                    if (school) {
+                        this.editedSchoolId = school.id;
+                        this.formData = { ...school };
+                    } else {
+                        this.resetForm();
+                    }
+                    document.getElementById('school-dialog').showModal();
+                },
+                saveSchool() {
+                    const url = this.editMode
+                        ? `http://localhost:8080/school/${this.editedSchoolId}`
+                        : 'http://localhost:8080/school';
+                    const method = this.editMode ? 'PUT' : 'POST';
+
+                    fetch(url, {
+                        method: method,
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(this.formData)
+                    })
+                        .then(() => {
+                            this.fetchSchools();
+                            this.closeModal();
+                        })
+                        .catch(error => {
+                            console.error('Error saving school:', error);
+                        });
+                },
+                deleteSchool(schoolId) {
+                    if (confirm('Tem certeza que deseja excluir esta escola?')) {
+                        fetch(`http://localhost:8080/school/${schoolId}`, {
+                            method: 'DELETE'
+                        })
+                            .then(() => {
+                                this.fetchSchools();
+                            })
+                            .catch(error => {
+                                console.error('Error deleting school:', error);
+                            });
+                    }
+                },
+                closeModal() {
+                    this.modalVisible = false;
+                    this.editMode = false;
+                    this.resetForm();
+                    document.getElementById('school-dialog').close();
+                },
+                resetForm() {
+                    this.formData = {
+                        schoolName: '',
+                        location: '',
+                        principalName: ''
+                    };
+                    this.editedSchoolId = null;
+                }
+            },
+            mounted() {
+                this.fetchSchools();
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
